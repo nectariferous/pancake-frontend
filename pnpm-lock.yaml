@@ -718,9 +718,6 @@ importers:
       '@tanstack/react-query':
         specifier: ^5.28.4
         version: 5.29.2(react@18.2.0)
-      '@telegram-auth/server':
-        specifier: ^1.0.3
-        version: 1.0.3
       '@vanilla-extract/next-plugin':
         specifier: ^2.3.0
         version: 2.3.2(@types/node@18.0.4)(next@14.2.3)(webpack@5.89.0)
@@ -12690,10 +12687,6 @@ packages:
     dependencies:
       '@tanstack/query-core': 5.29.0
       react: 18.2.0
-
-  /@telegram-auth/server@1.0.3:
-    resolution: {integrity: sha512-H0HLuAdP0V6eXqypx/DN4dAtVpiF2gLN3xZHQpNUfsMWIAgMCjiVtSGK+ig1mkcWezCoXAI49kauUsJpawB0Mg==}
-    dev: false
 
   /@testing-library/dom@8.20.1:
     resolution: {integrity: sha512-/DiOQ5xBxgdYRC8LNk7U+RWat0S3qRLeIw3ZIkMQ9kkVlRmwD/Eg8k8CqIpD6GW7u20JIUOfMKbxtiLutpjQ4g==}
@@ -26954,7 +26947,7 @@ packages:
       react: ^15.0.0 || ^16.0.0 || ^17.0.0 || ^18.0.0
       react-dom: ^15.0.0 || ^16.0.0 || ^17.0.0 || ^18.0.0
     dependencies:
-      '@babel/runtime': 7.23.2
+      '@babel/runtime': 7.23.9
       memoize-one: 5.2.1
       react: 18.2.0
       react-dom: 18.2.0(react@18.2.0)
