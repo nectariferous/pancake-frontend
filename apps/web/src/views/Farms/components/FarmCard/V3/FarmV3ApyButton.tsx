@@ -13,7 +13,6 @@ import {
   useModalV2,
   useTooltip,
 } from '@pancakeswap/uikit'
-import { BIG_ZERO } from '@pancakeswap/utils/bigNumber'
 import { Position, encodeSqrtRatioX96 } from '@pancakeswap/v3-sdk'
 import { FarmWidget } from '@pancakeswap/widgets-internal'
 import { RoiCalculatorModalV2, useRoi } from '@pancakeswap/widgets-internal/roi'
@@ -34,6 +33,7 @@ import { useV3FormState } from 'views/AddLiquidityV3/formViews/V3FormView/form/r
 import { V3Farm } from 'views/Farms/FarmsV3'
 import { FarmsV3Context } from 'views/Farms'
 import isUndefinedOrNull from '@pancakeswap/utils/isUndefinedOrNull'
+import { getPositionFarmApr, getPositionFarmAprFactor } from '@pancakeswap/farms'
 import { USER_ESTIMATED_MULTIPLIER, useUserPositionInfo } from '../../YieldBooster/hooks/bCakeV3/useBCakeV3Info'
 import { BoostStatus, useBoostStatus } from '../../YieldBooster/hooks/bCakeV3/useBoostStatus'
 import { getDisplayApr } from '../../getDisplayApr'
@@ -105,8 +105,6 @@ function FarmV3ApyButton_({ farm, existingPosition, isPositionStaked, tokenId }:
   const { volumeUSD: volume24H } = !isUndefinedOrNull(farmsAvgInfo)
     ? farmsAvgInfo?.[farm.lpAddress?.toLowerCase()] || {
         volumeUSD: 0,
-        tvlUSD: 0,
-        feeUSD: 0,
       }
     : poolAvgInfo
 
@@ -129,40 +127,40 @@ function FarmV3ApyButton_({ farm, existingPosition, isPositionStaked, tokenId }:
 
   const { data: farmV3 } = useFarmsV3Public()
 
-  const cakeAprFactor = useMemo(
-    () =>
-      new BigNumber(farm.poolWeight)
-        .times(farmV3.cakePerSecond)
-        .times(365 * 60 * 60 * 24)
-        .times(cakePrice)
-        .div(
-          new BigNumber(farm.lmPoolLiquidity).plus(
-            isPositionStaked ? BIG_ZERO : existingPosition?.liquidity?.toString() ?? BIG_ZERO,
-          ),
-        )
-        .times(100),
-    [
-      cakePrice,
-      existingPosition?.liquidity,
-      farm.lmPoolLiquidity,
-      farm.poolWeight,
-      farmV3.cakePerSecond,
-      isPositionStaked,
-    ],
-  )
+  const cakeAprFactor = useMemo(() => {
+    return getPositionFarmAprFactor({
+      poolWeight: farm.poolWeight,
+      cakePriceUsd: cakePrice,
+      liquidity: isPositionStaked ? 0n : existingPosition?.liquidity ?? 0n,
+      cakePerSecond: farmV3.cakePerSecond,
+      totalStakedLiquidity: farm.lmPoolLiquidity,
+    })
+  }, [
+    cakePrice,
+    existingPosition?.liquidity,
+    farm.lmPoolLiquidity,
+    farm.poolWeight,
+    farmV3.cakePerSecond,
+    isPositionStaked,
+  ])
 
-  const positionCakeApr = useMemo(
-    () =>
-      existingPosition
-        ? outOfRange
-          ? 0
-          : new BigNumber(existingPosition.liquidity.toString())
-              .times(cakeAprFactor)
-              .div(depositUsdAsBN ?? 0)
-              .toNumber()
-        : 0,
-    [cakeAprFactor, depositUsdAsBN, existingPosition, outOfRange],
-  )
+  const positionCakeApr = useMemo(() => {
+    if (!existingPosition || outOfRange) {
+      return 0
+    }
+    const { poolWeight, lmPoolLiquidity } = farm
+
+    return +(
+      getPositionFarmApr({
+        poolWeight,
+        positionTvlUsd: depositUsdAsBN ?? 0,
+        cakePriceUsd: cakePrice,
+        liquidity: existingPosition.liquidity,
+        cakePerSecond: farmV3.cakePerSecond,
+        totalStakedLiquidity: lmPoolLiquidity,
+      }) ?? 0
+    )
+  }, [depositUsdAsBN, existingPosition, outOfRange, cakePrice, farm, farmV3.cakePerSecond])
 
   const { apr } = useRoi({
     tickLower,
