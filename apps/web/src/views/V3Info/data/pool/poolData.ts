@@ -4,18 +4,19 @@ import { Block } from 'state/info/types'
 import { components } from 'state/info/api/schema'
 import { explorerApiClient } from 'state/info/api/client'
 import { getPercentChange } from 'utils/infoDataHelpers'
+import { multiQuery } from 'utils/infoQueryHelpers'
+import { fetchEthPrices } from 'views/V3Info/utils/getEthPrices'
 import { get2DayChange } from '../../utils/data'
 import { PoolData } from '../../types'
 
-export const POOLS_BULK = (block: number | undefined, pools: string[]) => {
+const POOLS_BULK = (block: number | undefined, pools: string[]) => {
   let poolString = `[`
   pools.forEach((address) => {
     poolString = `${poolString}"${address}",`
   })
   poolString += ']'
   const queryString = `
-    query pools {
-      pools(where: {id_in: ${poolString}},
+       ${block ? `t${block}` : 'current'}:pools(where: {id_in: ${poolString}},
      ${block ? `block: {number: ${block}} ,` : ``}
      orderBy: totalValueLockedUSD, orderDirection: desc) {
         id
@@ -49,14 +50,8 @@ export const POOLS_BULK = (block: number | undefined, pools: string[]) => {
         feesUSD
         protocolFeesUSD
       }
-      bundles(where: {id: "1"}) {
-        ethPriceUSD
-      }
-    }
     `
-  return gql`
-    ${queryString}
-  `
+  return queryString
 }
 
 interface PoolFields {
@@ -90,13 +85,6 @@ interface PoolFields {
   totalValueLockedUSD: string
   feesUSD: string
   protocolFeesUSD: string
-}
-
-interface PoolDataResponse {
-  pools: PoolFields[]
-  bundles: {
-    ethPriceUSD: string
-  }[]
 }
 
 export async function fetchedPoolData(
@@ -206,39 +194,69 @@ export async function fetchPoolDatas(
   try {
     const [block24, block48, blockWeek] = blocks ?? []
 
-    const data = await dataClient.request<PoolDataResponse>(POOLS_BULK(undefined, poolAddresses))
+    const { data: ethPrices } = await fetchEthPrices(dataClient, blocks)
 
-    const data24 = await dataClient.request<PoolDataResponse>(POOLS_BULK(block24?.number, poolAddresses))
-    const data48 = await dataClient.request<PoolDataResponse>(POOLS_BULK(block48?.number, poolAddresses))
-    const dataWeek = await dataClient.request<PoolDataResponse>(POOLS_BULK(blockWeek?.number, poolAddresses))
+    if (!ethPrices) {
+      return {
+        error: false,
+        data: undefined,
+      }
+    }
+
+    const result = (await multiQuery(
+      (subqueries) => gql`
+      query pools {
+        ${subqueries}
+      }
+    `,
+      [
+        POOLS_BULK(undefined, poolAddresses),
+        POOLS_BULK(block24?.number, poolAddresses),
+        POOLS_BULK(block48?.number, poolAddresses),
+        POOLS_BULK(blockWeek?.number, poolAddresses),
+      ],
+      dataClient,
+    )) as {
+      [key: string]: PoolFields[]
+    } | null
+
+    if (!result) {
+      return {
+        error: false,
+        data: undefined,
+      }
+    }
+
+    const data = result.current
+    const data24 = block24?.number ? result[`t${block24?.number}`] : undefined
+    const data48 = block48?.number ? result[`t${block48?.number}`] : undefined
+    const dataWeek = blockWeek?.number ? result[`t${blockWeek?.number}`] : undefined
 
     // return early if not all data yet
 
-    const ethPriceUSD = data?.bundles?.[0]?.ethPriceUSD ? parseFloat(data?.bundles?.[0]?.ethPriceUSD) : 0
-
-    const parsed = data?.pools
-      ? data.pools.reduce((accum: { [address: string]: PoolFields }, poolData) => {
+    const parsed = data
+      ? data.reduce((accum: { [address: string]: PoolFields }, poolData) => {
           // eslint-disable-next-line no-param-reassign
           accum[poolData.id] = poolData
           return accum
         }, {})
       : {}
-    const parsed24 = data24?.pools
-      ? data24.pools.reduce((accum: { [address: string]: PoolFields }, poolData) => {
+    const parsed24 = data24
+      ? data24.reduce((accum: { [address: string]: PoolFields }, poolData) => {
           // eslint-disable-next-line no-param-reassign
           accum[poolData.id] = poolData
           return accum
         }, {})
       : {}
-    const parsed48 = data48?.pools
-      ? data48.pools.reduce((accum: { [address: string]: PoolFields }, poolData) => {
+    const parsed48 = data48
+      ? data48.reduce((accum: { [address: string]: PoolFields }, poolData) => {
           // eslint-disable-next-line no-param-reassign
           accum[poolData.id] = poolData
           return accum
         }, {})
       : {}
-    const parsedWeek = dataWeek?.pools
-      ? dataWeek.pools.reduce((accum: { [address: string]: PoolFields }, poolData) => {
+    const parsedWeek = dataWeek
+      ? dataWeek.reduce((accum: { [address: string]: PoolFields }, poolData) => {
           // eslint-disable-next-line no-param-reassign
           accum[poolData.id] = poolData
           return accum
@@ -270,7 +288,7 @@ export async function fetchPoolDatas(
           ? new BigNumber(current?.feesUSD)
               .minus(current?.protocolFeesUSD)
               .minus(new BigNumber(oneDay?.feesUSD).minus(oneDay?.protocolFeesUSD))
-          : new BigNumber(current?.feesUSD).minus(current?.protocolFeesUSD)
+          : new BigNumber(current?.feesUSD ?? '0').minus(current?.protocolFeesUSD ?? '0')
       const tvlToken0 = current ? parseFloat(current.totalValueLockedToken0) : 0
       const tvlToken1 = current ? parseFloat(current.totalValueLockedToken1) : 0
       let tvlUSD = current ? parseFloat(current.totalValueLockedUSD) : 0
@@ -284,8 +302,8 @@ export async function fetchPoolDatas(
 
       // Part of TVL fix
       const tvlUpdated = current
-        ? tvlToken0 * parseFloat(current.token0.derivedETH) * ethPriceUSD +
-          tvlToken1 * parseFloat(current.token1.derivedETH) * ethPriceUSD
+        ? tvlToken0 * parseFloat(current.token0.derivedETH) * ethPrices.current +
+          tvlToken1 * parseFloat(current.token1.derivedETH) * ethPrices.current
         : undefined
       if (tvlUpdated) {
         tvlUSD = tvlUpdated

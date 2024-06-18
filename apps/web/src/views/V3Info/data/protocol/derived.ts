@@ -1,6 +1,5 @@
 import { ChainId } from '@pancakeswap/chains'
 import { GraphQLClient } from 'graphql-request'
-import type { components } from 'state/info/api/schema'
 import { chainIdToExplorerInfoChainName } from 'state/info/api/client'
 import { POOL_HIDE } from '../../constants'
 import { ChartDayData, PoolChartEntry, PoolData } from '../../types'
