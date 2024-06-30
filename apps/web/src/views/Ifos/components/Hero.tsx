@@ -5,7 +5,7 @@ import { Box, Button, Container, Flex, Heading, Text, useMatchBreakpoints } from
 import { useActiveChainId } from 'hooks/useActiveChainId'
 import Image from 'next/image'
 import { useRouter } from 'next/router'
-import { useMemo } from 'react'
+import { useCallback, useMemo } from 'react'
 import { styled } from 'styled-components'
 
 import { getChainBasedImageUrl } from '../helpers'
@@ -73,14 +73,14 @@ const Hero = () => {
   const { t } = useTranslation()
   const { isMobile } = useMatchBreakpoints()
 
-  const handleClick = () => {
+  const handleClick = useCallback(() => {
     const howToElem = document.getElementById('ifo-how-to')
     if (howToElem != null) {
       howToElem.scrollIntoView()
     } else {
       router.push('/ifo#ifo-how-to')
     }
-  }
+  }, [router])
 
   return (
     <Box mb="8px">

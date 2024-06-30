@@ -1,4 +1,4 @@
-import { ReactNode } from 'react'
+import { ReactNode, useMemo } from 'react'
 import { styled } from 'styled-components'
 import { Flex, Skeleton, Text, FlexGap, Balance } from '@pancakeswap/uikit'
 import { useTranslation } from '@pancakeswap/localization'
@@ -39,7 +39,7 @@ const AbsoluteWrapper = styled(Flex)<{ visible: boolean; index: number; topOffse
 const TopFarmPool: React.FC<React.PropsWithChildren<TopFarmPoolProps>> = ({ title, percentage, index, visible }) => {
   const { t } = useTranslation()
 
-  const topOffset = () => {
+  const topOffset = useMemo(() => {
     if (index >= 0 && index < 2) {
       return '0px'
     }
@@ -49,11 +49,11 @@ const TopFarmPool: React.FC<React.PropsWithChildren<TopFarmPoolProps>> = ({ titl
     }
 
     return '160px'
-  }
+  }, [index])
 
   return (
     <StyledWrapper index={index}>
-      <AbsoluteWrapper index={index} visible={visible} topOffset={topOffset()}>
+      <AbsoluteWrapper index={index} visible={visible} topOffset={topOffset}>
         {title ? (
           <Text bold mb="8px" fontSize="12px" color="secondary">
             {title}
