@@ -20,7 +20,7 @@ import { ASSET_CDN } from 'config/constants/endpoints'
 import { useAtom } from 'jotai'
 import { atomWithStorage } from 'jotai/utils'
 import Image from 'next/legacy/image'
-import { useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import styled from 'styled-components'
 
 const zksyncAutoPopup = atomWithStorage<boolean>('pcs:zksync-airdrop-auto-popup', true)
@@ -84,6 +84,10 @@ export const ZksyncAirDropBanner = () => {
     }
   }, [whitelistData, zksyncAirdropData, autoPopup, setAutoPopup])
 
+  const handleOnDismiss = useCallback(() => {
+    setIsOpen(false)
+  }, [])
+
   return (
     <>
       <BannerContainer background="linear-gradient(180deg, rgba(39, 78, 234, 0.88) 74.72%, rgba(48, 90, 235, 0.88) 85.09%, rgba(74, 127, 239, 0.88) 94.31%, rgba(149, 231, 249, 0.88) 100%), linear-gradient(180deg, rgba(32, 68, 197, 0.20) 0%, rgba(65, 57, 168, 0.00) 100%), linear-gradient(0deg, #264FED 0%, #264FED 100%), linear-gradient(180deg, #CCA382 0%, #9DC38F 49.77%, #9FCCCF 100%);">
@@ -140,12 +144,7 @@ export const ZksyncAirDropBanner = () => {
           <FloatingGraphic src={floatingAsset} width={isMobile ? 100 : 80} height={isMobile ? 100 : 80} />
         </BannerGraphics>
       </BannerContainer>
-      <ClaimZksyncAirdropModal
-        isOpen={isOpen}
-        onDismiss={() => {
-          setIsOpen(false)
-        }}
-      />
+      <ClaimZksyncAirdropModal isOpen={isOpen} onDismiss={handleOnDismiss} />
     </>
   )
 }
